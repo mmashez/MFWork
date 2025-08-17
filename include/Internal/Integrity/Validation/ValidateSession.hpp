@@ -78,9 +78,9 @@ namespace MF::Integrity {
         }
 
         // current system info
-        OSInfo info = GetOSInfo();
+        SystemInfo::OS::OSInfo info = SystemInfo::OS::GetOSInfo();
         std::string currentOS = normalize(info.os);
-        std::string currentArch = normalize(GetStrArchitecture());
+        std::string currentArch = normalize(SystemInfo::Arch::GetStrArchitecture());
 
         MF::Print::Out(MF::Print::LogLevel::Debug, std::string("Current OS: ") + currentOS);
         MF::Print::Out(MF::Print::LogLevel::Debug, std::string("Current Arch: ") + currentArch);
