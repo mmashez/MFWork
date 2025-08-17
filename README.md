@@ -1,4 +1,5 @@
 # MFWork  
+
 **Build Faster, Ship Safer.**
 
 ---
@@ -31,11 +32,13 @@ but you may still run into issues.
 If you’re on Linux, use `pkg-config` to avoid problems with third-party headers.  
 
 **clang++ example:**  
+
 ```bash
 clang++ target.cpp -o output `pkg-config gtkmm-4.0 --cflags --libs`
 ```
 
 **g++ example:**  
+
 ```bash
 g++ target.cpp -o output `pkg-config gtkmm-4.0 --cflags --libs`
 ```
@@ -48,6 +51,7 @@ as used in `Internal/GUI/Foundation/Base.hpp`.)*
 ## Example Usage  
 
 **Minimal Example:**  
+
 ```cpp
 #include "MFWork/include/MFWork.h"
 
@@ -64,6 +68,7 @@ int main() {
 ```
 
 **Or if you want error handling:**  
+
 ```cpp
 #include "MFWork/include/MFWork.h"
 #include <string>
@@ -92,6 +97,7 @@ int main() {
 HotConfig is MFWork’s custom configuration format, inspired by YAML.  
 
 **Example: `App.hc`** *(found in `Internal/Configurations/Rulebook/App.hc`)*  
+
 ```yaml
 app: MFWork-Testing # Must not contain spaces
 author: mmashez
@@ -110,6 +116,7 @@ support:
 ```
 
 **Example: `Build.hc`** *(found in `Internal/Configurations/Rulebook/Build.hc`)*  
+
 ```yaml
 version: 0.0.0
 channel: Developing # Developing / Unstable / Beta / Production
