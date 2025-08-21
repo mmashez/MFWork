@@ -3,7 +3,7 @@
 #include <iomanip>
 
 namespace MF::Chrono::Date {
-    static std::string GetDateString() {
+    static std::string GetDateStr() {
         std::time_t t = MF::Chrono::Date::GetRawDate();
         std::tm tm_local;
 

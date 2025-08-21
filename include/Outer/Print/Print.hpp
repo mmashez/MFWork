@@ -1,35 +1,63 @@
 #pragma once
 
-#include "../../Internal/RawLogging/RawLogging.hpp"
-#include "../../Internal/Time&Date/Time/Misc.hpp"
+#include "../../Internal/Print/RawLogging/RawLogging.hpp"
+#include "../../Internal/Runtime/Arguments/Global.hpp"
+#include "../../Internal/Print/LogLevel.hpp"
+#include "../../Internal/Settings/IntSettings.hpp"
+#include "../../Internal/Global/GlobalDefinitions.hpp"
+#include <fstream>
 #include <string>
 
 namespace MF::Print {
-    enum class LogLevel {
-        Debug = 2,
-        Info = 1,
-        Warning = 0,
-        Error = -1
-    };
-
-    inline std::string LogLevelToString(LogLevel level) {
-        switch (level) {
-            case LogLevel::Debug: return "DEBUG";
-            case LogLevel::Info: return "INFO";
-            case LogLevel::Warning: return "WARNING";
-            case LogLevel::Error: return "ERROR";
-        }
-        return "UNKNOWN";
-    }
-
-    inline LogLevel CurrentLevel = LogLevel::Debug;
 
     inline void Out(LogLevel level, const std::string& message, bool newline = true) {
-        if (static_cast<int>(level) > static_cast<int>(CurrentLevel) || message.empty()) return;
-        std::string Time = "[" + Chrono::Time::GetTimeStr() + "]";
-        std::string Level = "-" + LogLevelToString(level) + "-";
-        std::string CompleteMessage = Time + " " + Level + " " + message;
-        if (newline) CompleteMessage += "\n";
-        MF::Print::Internal::cout << CompleteMessage;
+        if (static_cast<int>(level) > static_cast<int>(MF::InternalSettings::Printing::CurrentLevel) || message.empty()) return;
+
+        std::string timeStr = "[" + Chrono::Time::GetTimeStr() + "]";
+        std::string levelStr = "-" + LogLevelToString(level) + "-";
+        std::string completeMessage = timeStr + " " + levelStr + " " + message;
+        if (newline) completeMessage += "\n";
+
+        // print to console
+        MF::Print::Internal::cout << completeMessage;
+
+        // override log file path if argument exists
+        if (MF::Global::ArgumentParser.Has("mf.init.hclogpath")) {
+            InternalSettings::Printing::HClogPath = MF::Global::ArgumentParser.Get("mf.init.hclogpath");
+        }
+
+        // check if file exists and starts with "logs:"
+        static bool wroteHeader = false;
+        if (!wroteHeader) {
+            bool fileHasHeader = false;
+            std::ifstream checkFile(InternalSettings::Printing::HClogPath);
+            if (checkFile.is_open()) {
+                std::string firstLine;
+                if (std::getline(checkFile, firstLine)) {
+                    if (firstLine.find("logs:") == 0) fileHasHeader = true;
+                }
+                checkFile.close();
+            }
+
+            std::ofstream logFile(InternalSettings::Printing::HClogPath, std::ios::app);
+            if (logFile.is_open()) {
+                if (!fileHasHeader) logFile << "logs:\n";
+                logFile << "    [" << Global::LaunchTime << "]:\n"; // new section per run
+                wroteHeader = true;
+                logFile.close();
+            } else {
+                MF::Print::Internal::cout << "[ERROR] Failed to open " << InternalSettings::Printing::HClogPath << "\n";
+                return;
+            }
+        }
+
+        // append log line under current launch timestamp
+        std::ofstream logFile(InternalSettings::Printing::HClogPath, std::ios::app);
+        if (logFile.is_open()) {
+            logFile << "        " << completeMessage;
+            logFile.close();
+        } else {
+            MF::Print::Internal::cout << "[ERROR] Failed to open " << InternalSettings::Printing::HClogPath << "\n";
+        }
     }
 }

@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <string>
 #include <system_error>
+#include <fstream>
 
 namespace fs = std::filesystem;
 
@@ -36,7 +37,7 @@ namespace MF::FilesManager {
         return Result;
     }
 
-    // Create Directory (including intermediate directories)
+    // Create directory (including intermediate directories)
     static bool CreateDirectory(const std::string& Path, std::string& OutError) noexcept {
         std::error_code Ec;
         bool Result = fs::create_directories(fs::u8path(Path), Ec);
@@ -47,7 +48,23 @@ namespace MF::FilesManager {
         return Result;
     }
 
-    // Remove File or Directory (recursively for directories)
+    // Create file
+    static bool CreateFile(const std::string& Path, std::string& OutError) noexcept {
+        try {
+            std::ofstream file(fs::u8path(Path));
+            if (!file.is_open()) {
+                OutError = "failed to create file: " + Path;
+                return false;
+            }
+            return true;
+        } catch (const std::exception& e) {
+            OutError = e.what();
+            return false;
+        }
+    }
+
+
+    // Remove file/directory recursively
     static bool Remove(const std::string& Path, std::string& OutError) noexcept {
         std::error_code Ec;
         uintmax_t Count = fs::remove_all(fs::u8path(Path), Ec);
