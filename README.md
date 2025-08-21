@@ -50,7 +50,7 @@ as used in `Internal/GUI/Foundation/Base.hpp`.)*
 
 ## Example Usage  
 
-**Hello World example:**  
+**Hello World example** (for versions below 0.1.2-experimental)**:**  
 
 ```cpp
 #include "MFWork/include/MFWork.h"
@@ -78,13 +78,68 @@ int main(int argc, char* argv[]) {
 }
 ```
 
+**Hello World Example** (for versions above 0.1.2-experimental)**:**
+
+```cpp
+#include "MFWork/include/MFWork.h"
+
+
+int main(int argc, char* argv[]) {
+    MF::InternalSettings::GlobalSettings.Setup({
+        // initialization
+        .Init = {
+            .StartTimer = true,
+            .AllowOverrides = true,
+            .CriticalFiles = {},
+            .CheckCriticalFiles = true,
+            .ParseArguments = true,
+            .AutoDetermineLogLevel = true,
+            .ValidateSession = true,
+            .LogBuildChannel = true,
+            .AlertOnUnstableChannel = true
+        },
+        // printing
+        .Print = {
+            .CurrentLevel = MF::Print::LogLevel::Debug,
+            .File = {
+                .Enabled = true,
+                .HClogPath = "mfwork_logs.hclog"
+            }
+        },
+        // project info
+        .Project = {
+            .App = {
+                .Name = "MFWork-Testing",
+                .Author = "mmashez",
+                .License = "None",
+                .Support = {
+                    .Architectures = {"x86_64", "arm64", "any"},
+                    .OperatingSystems = {"linux", "windows", "any"}
+                }
+            },
+            .Build = {
+                .Version = "0.0.0",
+                .Channel = "unstable"
+            }
+        }
+    });
+
+    if (!MF::Initializer::InitializeMFWork(argc, argv)) {
+        return -1;
+    }
+
+    MF::Print::Out(MF::Print::LogLevel::Info, "Hello World!");
+    return 0;
+}
+```
+
 ---
 
 ## HotConfig  
 
 HotConfig is MFWork’s custom configuration format, inspired by YAML.
-**⚠️ Note**: Usage of App.hc and Build.hc will be replaced by Internal Settings in the future.
-HotConfig will still be used.
+**⚠️ Note**: Usage of App.hc and Build.hc is replaced in versions above v0.1.2-experimental. No deprecated support.
+HotConfig will still be used for other purposes.
 
 **Example: `App.hc`** *(found in `Internal/Configurations/Rulebook/App.hc`)*  
 
