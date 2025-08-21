@@ -56,6 +56,19 @@ as used in `Internal/GUI/Foundation/Base.hpp`.)*
 #include "MFWork/include/MFWork.h"
 
 int main(int argc, char* argv[]) {
+    MF::InternalSettings::SettingsStack::Setup(
+        true, // <- start timer
+        false, // -< allow overrides
+        true, // <- check critical files
+        true, // <- whether to parse arguments or not (disables in-terminal overriding)
+        true, // <- auto determine log level
+        true, // <- validate session
+        true, // <- log build channel
+        true, // <- alert on unstable channel
+        MF::Print::LogLevel::Debug, // <- default log level
+        true, // <- file logging
+        "mfwork_logs.hclog" // <- file logging path
+    );
     if (!MF::Initializer::InitializeMFWork(argc, argv)) {
         return -1;
     }
