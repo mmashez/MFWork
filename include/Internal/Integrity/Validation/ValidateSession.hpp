@@ -95,6 +95,12 @@ namespace MF::Integrity {
             if (fuzzyMatch(s, currentArch)) { arch_ok = true; break; }
         }
 
+        if (std::find(SupportedOperatingSystems.begin(), SupportedOperatingSystems.end(), "any") != SupportedOperatingSystems.end()) {
+            os_ok = true;
+        }
+        if (std::find(SupportedArchitectures.begin(), SupportedArchitectures.end(), "any") != SupportedArchitectures.end()) {
+            arch_ok = true;
+        }
         if (os_ok && arch_ok) {
             MF::Print::Out(MF::Print::LogLevel::Info, "Session validation: OK");
             return true;

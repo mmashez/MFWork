@@ -64,7 +64,7 @@ namespace MF::Global {
                         return false;
                     }
 
-                    std::vector<std::string> allowedArch = { "x86_64", "arm64", "arm", "x86" };
+                    std::vector<std::string> allowedArch = { "x86_64", "arm64", "arm", "x86", "any" };
                     bool validArchFound = false;
 
                     for (auto& archVal : Architectures->asList()) {
