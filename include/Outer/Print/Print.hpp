@@ -22,42 +22,45 @@ namespace MF::Print {
         MF::Print::Internal::cout << completeMessage;
 
         // override log file path if argument exists
-        if (MF::Global::ArgumentParser.Has("mf.init.hclogpath")) {
-            InternalSettings::Printing::HClogPath = MF::Global::ArgumentParser.Get("mf.init.hclogpath");
+        if (MF::Global::ArgumentParser.Has("mf.print.hclogpath")) {
+            InternalSettings::Printing::FileLogging::HClogPath = MF::Global::ArgumentParser.Get("mf.print.hclogpath");
         }
 
-        // check if file exists and starts with "logs:"
-        static bool wroteHeader = false;
-        if (!wroteHeader) {
-            bool fileHasHeader = false;
-            std::ifstream checkFile(InternalSettings::Printing::HClogPath);
-            if (checkFile.is_open()) {
-                std::string firstLine;
-                if (std::getline(checkFile, firstLine)) {
-                    if (firstLine.find("logs:") == 0) fileHasHeader = true;
+        // print to file
+        if (InternalSettings::Printing::FileLogging::Enabled) {
+            // check if file exists and starts with "logs:"
+            static bool wroteHeader = false;
+            if (!wroteHeader) {
+                bool fileHasHeader = false;
+                std::ifstream checkFile(InternalSettings::Printing::FileLogging::HClogPath);
+                if (checkFile.is_open()) {
+                    std::string firstLine;
+                    if (std::getline(checkFile, firstLine)) {
+                        if (firstLine.find("logs:") == 0) fileHasHeader = true;
+                    }
+                    checkFile.close();
                 }
-                checkFile.close();
+
+                std::ofstream logFile(InternalSettings::Printing::FileLogging::HClogPath, std::ios::app);
+                if (logFile.is_open()) {
+                    if (!fileHasHeader) logFile << "logs:\n";
+                    logFile << "    [" << Global::LaunchTime << "]:\n"; // new section per run
+                    wroteHeader = true;
+                    logFile.close();
+                } else {
+                    MF::Print::Internal::cout << "[ERROR] Failed to open " << InternalSettings::Printing::FileLogging::HClogPath << "\n";
+                    return;
+                }
             }
 
-            std::ofstream logFile(InternalSettings::Printing::HClogPath, std::ios::app);
+            // append log line under current launch timestamp
+            std::ofstream logFile(InternalSettings::Printing::FileLogging::HClogPath, std::ios::app);
             if (logFile.is_open()) {
-                if (!fileHasHeader) logFile << "logs:\n";
-                logFile << "    [" << Global::LaunchTime << "]:\n"; // new section per run
-                wroteHeader = true;
+                logFile << "        " << completeMessage;
                 logFile.close();
             } else {
-                MF::Print::Internal::cout << "[ERROR] Failed to open " << InternalSettings::Printing::HClogPath << "\n";
-                return;
+                MF::Print::Internal::cout << "[ERROR] Failed to open " << InternalSettings::Printing::FileLogging::HClogPath << "\n";
             }
-        }
-
-        // append log line under current launch timestamp
-        std::ofstream logFile(InternalSettings::Printing::HClogPath, std::ios::app);
-        if (logFile.is_open()) {
-            logFile << "        " << completeMessage;
-            logFile.close();
-        } else {
-            MF::Print::Internal::cout << "[ERROR] Failed to open " << InternalSettings::Printing::HClogPath << "\n";
         }
     }
 }
