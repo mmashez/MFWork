@@ -50,42 +50,17 @@ as used in `Internal/GUI/Foundation/Base.hpp`.)*
 
 ## Example Usage  
 
-**Minimal Example:**  
+**Hello World example:**  
 
 ```cpp
 #include "MFWork/include/MFWork.h"
 
-int main() {
-    MF::Initializer::InitializeMFWork(); // checks for mandatory files and validates session
-
-    std::string UnusedBuffer = "";
-    MF::FilesManager::CreateDirectory("TestDirectory", UnusedBuffer);
-    if (MF::FilesManager::Exists("TestDirectory")) {
-        MF::Print::Out(MF::Print::LogLevel::Info, "Directory created successfully!");
-    }
-    return 0;
-}
-```
-
-**Or if you want error handling:**  
-
-```cpp
-#include "MFWork/include/MFWork.h"
-#include <string>
-
-int main() {
-    MF::Initializer::InitializeMFWork();
-    std::string FileManagerFault;
-
-    MF::FilesManager::CreateDirectory("TestDirectory", FileManagerFault);
-    if (!FileManagerFault.empty()) {
-        MF::Print::Out(MF::Print::LogLevel::Error, "Something went wrong: " + FileManagerFault);
-        return 1;
+int main(int argc, char* argv[]) {
+    if (!MF::Initializer::InitializeMFWork(argc, argv)) {
+        return -1;
     }
 
-    if (MF::FilesManager::Exists("TestDirectory")) {
-        MF::Print::Out(MF::Print::LogLevel::Info, "Directory created successfully!");
-    }
+    MF::Print::Out(MF::Print::LogLevel::Info, "Hello World!");
     return 0;
 }
 ```
