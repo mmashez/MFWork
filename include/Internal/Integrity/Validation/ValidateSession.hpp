@@ -3,10 +3,9 @@
 #include "../../SystemInfo/Architecture/Misc.hpp"
 #include "../../SystemInfo/OS/Misc.hpp"
 #include "../Action/TakeAction.hpp"
-#include "../../Configuration/ConfigManager.hpp"
 #include "../../../Outer/Print/Print.hpp"
 #include "../IntegrityIssue.hpp"
-#include "../../../Outer/Global/Configurations/App.hpp" // use the global app config
+#include "../../Settings/IntSettings.hpp"
 #include <string>
 #include <vector>
 #include <cctype>
@@ -35,64 +34,33 @@ namespace MF::Integrity {
     }
 
     inline bool ValidateSession(bool TakeAction = false) {
-        // ensure global config is loaded and usable
-        if (!Global::Configurations::App::Usable) {
-            MF::Print::Out(MF::Print::LogLevel::Debug, "Global App configuration not loaded - attempting load...");
-            if (!Global::Configurations::App::Load()) {
-                MF::Print::Out(MF::Print::LogLevel::Error, "Failed to load global App configuration.");
-                return false;
-            }
+        if (!InternalSettings::GlobalSettings.Usable) {
+            MF::Print::Out(MF::Print::LogLevel::Debug, "User fault while trying to validate session: InternalSettings not setup!");
+            exit(1);
+            return false;
         }
 
-        // reference to the global config manager
-        MF::Configurations::ConfigManager& cfg = Global::Configurations::App::Config;
+        std::string CurrentOS = normalize(SystemInfo::OS::GetOSInfo().os);
+        std::string CurrentArch = normalize(SystemInfo::Arch::GetStrArchitecture());
 
-        // load architectures
-        MF::Configurations::Internal::Parser::HCValue* Architectures = cfg.Configuration.get("support.Architecture");
-        std::vector<std::string> SupportedArchitectures;
-        if (Architectures && Architectures->isList()) {
-            for (auto& Architecture : Architectures->asList()) {
-                std::string arch = normalize(Architecture.asString());
-                if (!arch.empty()) {
-                    SupportedArchitectures.push_back(arch);
-                    MF::Print::Out(MF::Print::LogLevel::Debug, std::string("Found supported architecture: ") + arch);
-                }
-            }
-        } else {
-            MF::Print::Out(MF::Print::LogLevel::Debug, "No support.Architecture list found in App configuration.");
-        }
+        MF::Print::Out(MF::Print::LogLevel::Debug, "Current OS: " + CurrentOS);
+        MF::Print::Out(MF::Print::LogLevel::Debug, "Current Arch: " + CurrentArch);
 
-        // load operating systems
-        MF::Configurations::Internal::Parser::HCValue* OperatingSystems = cfg.Configuration.get("support.OS");
-        std::vector<std::string> SupportedOperatingSystems;
-        if (OperatingSystems && OperatingSystems->isList()) {
-            for (auto& OS : OperatingSystems->asList()) {
-                std::string osn = normalize(OS.asString());
-                if (!osn.empty()) {
-                    SupportedOperatingSystems.push_back(osn);
-                    MF::Print::Out(MF::Print::LogLevel::Debug, std::string("Found supported OS: ") + osn);
-                }
-            }
-        } else {
-            MF::Print::Out(MF::Print::LogLevel::Debug, "No support.OS list found in App configuration.");
-        }
+        auto SupportedOperatingSystems = InternalSettings::GlobalSettings.Project.App.Support.OperatingSystems;
+        auto SupportedArchitectures = InternalSettings::GlobalSettings.Project.App.Support.Architectures;
 
-        // current system info
-        SystemInfo::OS::OSInfo info = SystemInfo::OS::GetOSInfo();
-        std::string currentOS = normalize(info.os);
-        std::string currentArch = normalize(SystemInfo::Arch::GetStrArchitecture());
-
-        MF::Print::Out(MF::Print::LogLevel::Debug, std::string("Current OS: ") + currentOS);
-        MF::Print::Out(MF::Print::LogLevel::Debug, std::string("Current Arch: ") + currentArch);
+        // normalize supported lists
+        for (auto& os : SupportedOperatingSystems) os = normalize(os);
+        for (auto& arch : SupportedArchitectures) arch = normalize(arch);
 
         bool os_ok = false;
         bool arch_ok = false;
 
         for (const auto& s : SupportedOperatingSystems) {
-            if (fuzzyMatch(s, currentOS)) { os_ok = true; break; }
+            if (fuzzyMatch(s, CurrentOS)) { os_ok = true; break; }
         }
         for (const auto& s : SupportedArchitectures) {
-            if (fuzzyMatch(s, currentArch)) { arch_ok = true; break; }
+            if (fuzzyMatch(s, CurrentArch)) { arch_ok = true; break; }
         }
 
         if (std::find(SupportedOperatingSystems.begin(), SupportedOperatingSystems.end(), "any") != SupportedOperatingSystems.end()) {
@@ -101,18 +69,18 @@ namespace MF::Integrity {
         if (std::find(SupportedArchitectures.begin(), SupportedArchitectures.end(), "any") != SupportedArchitectures.end()) {
             arch_ok = true;
         }
+
         if (os_ok && arch_ok) {
             MF::Print::Out(MF::Print::LogLevel::Info, "Session validation: OK");
             return true;
         }
 
         if (TakeAction) {
-            // pass a copy of the global config manager into the integrity issue (constructor expects ConfigManager)
-            IntegrityIssue issue(os_ok, arch_ok, currentOS, currentArch, cfg);
+            IntegrityIssue issue(os_ok, arch_ok, CurrentOS, CurrentArch, InternalSettings::GlobalSettings.Project.App.Name);
             MF::Integrity::TakeActionOnIntegrityIssue(&issue);
         } else {
-            if (!os_ok) MF::Print::Out(MF::Print::LogLevel::Error, std::string("Not supported OS: ") + currentOS);
-            if (!arch_ok) MF::Print::Out(MF::Print::LogLevel::Error, std::string("Not supported Arch: ") + currentArch);
+            if (!os_ok) MF::Print::Out(MF::Print::LogLevel::Error, "Not supported OS: " + CurrentOS);
+            if (!arch_ok) MF::Print::Out(MF::Print::LogLevel::Error, "Not supported Arch: " + CurrentArch);
         }
 
         return false;
