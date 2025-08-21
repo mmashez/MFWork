@@ -156,7 +156,7 @@ support:
     OS:
         - linux
         # - windows
-        # - any    << not implemented yet
+        # - any
 # Comments are supported (both block and inline).
 ```
 

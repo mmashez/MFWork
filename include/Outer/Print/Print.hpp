@@ -10,26 +10,47 @@
 #include <string>
 
 namespace MF::Print {
+    inline MF::InternalSettings::SettingsStack::Printing::Palette palette;
 
     inline void Out(LogLevel level, const std::string& message, bool newline = true) {
         if (static_cast<int>(level) > static_cast<int>(InternalSettings::GlobalSettings.Print.CurrentLevel) || message.empty()) return;
 
-        std::string timeStr = "[" + Chrono::Time::GetTimeStr() + "]";
-        std::string levelStr = "-" + LogLevelToString(level) + "-";
-        std::string completeMessage = timeStr + " " + levelStr + " " + message;
+        std::string timeStr = Chrono::Time::GetTimeStr();
+        std::string levelStr = LogLevelToString(level);
+
+        MF::InternalSettings::SettingsStack::Printing::Palette::LevelStyle style;
+        switch (level) {
+            case LogLevel::Debug:   style = palette.Debug; break;
+            case LogLevel::Info:    style = palette.Info; break;
+            case LogLevel::Warning: style = palette.Warning; break;
+            case LogLevel::Error:   style = palette.Error; break;
+            default: style = palette.Info; break;
+        }
+
+        std::string colorTime    = palette.ColorCode(palette.Time, true);
+        std::string colorLevel   = palette.ColorCode(style.color, style.bold);
+        std::string colorBracket = palette.ColorCode(palette.Brackets, false);
+        std::string colorMessage = palette.ColorCode(palette.Message, false);
+        std::string reset        = palette.Reset;
+
+        std::string completeMessage =
+            colorBracket + "[" + reset +
+            colorTime + timeStr + reset +
+            colorBracket + "]" + reset +
+            " " +
+            colorLevel + "-" + levelStr + "-" + reset +
+            " " +
+            colorMessage + message + reset;
+
         if (newline) completeMessage += "\n";
 
-        // print to console
         MF::Print::Internal::cout << completeMessage;
 
-        // override log file path if argument exists
-        if (MF::Global::ArgumentParser.Has("mf.print.hclogpath") && MF::InternalSettings::GlobalSettings.Init.AllowOverrides) {
+        if (MF::Global::ArgumentParser.Has("mf.print.hclogpath") && InternalSettings::GlobalSettings.Init.AllowOverrides) {
             InternalSettings::GlobalSettings.Print.File.HClogPath = MF::Global::ArgumentParser.Get("mf.print.hclogpath");
         }
 
-        // print to file
         if (InternalSettings::GlobalSettings.Print.File.Enabled && MF::FilesManager::Exists(InternalSettings::GlobalSettings.Print.File.HClogPath)) {
-            // check if file exists and starts with "logs:"
             static bool wroteHeader = false;
             if (!wroteHeader) {
                 bool fileHasHeader = false;
@@ -45,7 +66,7 @@ namespace MF::Print {
                 std::ofstream logFile(InternalSettings::GlobalSettings.Print.File.HClogPath, std::ios::app);
                 if (logFile.is_open()) {
                     if (!fileHasHeader) logFile << "logs:\n";
-                    logFile << "    [" << Global::LaunchTime << "]:\n"; // new section per run
+                    logFile << "    [" << Global::LaunchTime << "]:\n";
                     wroteHeader = true;
                     logFile.close();
                 } else {
@@ -54,10 +75,9 @@ namespace MF::Print {
                 }
             }
 
-            // append log line under current launch timestamp
             std::ofstream logFile(InternalSettings::GlobalSettings.Print.File.HClogPath, std::ios::app);
             if (logFile.is_open()) {
-                logFile << "        " << completeMessage;
+                logFile << "        [" << timeStr << "] -" << levelStr << "- " << message << "\n";
                 logFile.close();
             } else {
                 MF::Print::Internal::cout << "[ERROR] Failed to open " << InternalSettings::GlobalSettings.Print.File.HClogPath << "\n";
