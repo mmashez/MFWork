@@ -82,7 +82,9 @@ int main(int argc, char* argv[]) {
 
 ## HotConfig  
 
-HotConfig is MFWork’s custom configuration format, inspired by YAML.  
+HotConfig is MFWork’s custom configuration format, inspired by YAML.
+**⚠️ Note**: Usage of App.hc and Build.hc will be replaced by Internal Settings in the future.
+HotConfig will still be used.
 
 **Example: `App.hc`** *(found in `Internal/Configurations/Rulebook/App.hc`)*  
 
