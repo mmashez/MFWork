@@ -10,7 +10,6 @@
 #include <vector>
 #include <cctype>
 
-// normalize strings for comparison
 namespace MF::Integrity {
     static std::string normalize(const std::string& s) {
         std::string out;
@@ -25,7 +24,6 @@ namespace MF::Integrity {
         return out;
     }
 
-    // lenient matching: exact or substring both ways
     static bool fuzzyMatch(const std::string& a, const std::string& b) {
         if (a == b) return true;
         if (a.find(b) != std::string::npos) return true;
@@ -35,7 +33,8 @@ namespace MF::Integrity {
 
     inline bool ValidateSession(bool TakeAction = false) {
         if (!InternalSettings::GlobalSettings.Usable) {
-            MF::Print::Out(MF::Print::LogLevel::Debug, "User fault while trying to validate session: InternalSettings not setup!");
+            MF::Print::Out(MF::Print::LogLevel::Debug,
+                           "User fault while trying to validate session: InternalSettings not setup!");
             exit(1);
             return false;
         }
@@ -49,7 +48,10 @@ namespace MF::Integrity {
         auto SupportedOperatingSystems = InternalSettings::GlobalSettings.Project.App.Support.OperatingSystems;
         auto SupportedArchitectures = InternalSettings::GlobalSettings.Project.App.Support.Architectures;
 
-        // normalize supported lists
+        // fix: make sure AppName is respected if set
+        std::string AppName = InternalSettings::GlobalSettings.Project.App.Name;
+        if (AppName.empty()) AppName = "Unknown";
+
         for (auto& os : SupportedOperatingSystems) os = normalize(os);
         for (auto& arch : SupportedArchitectures) arch = normalize(arch);
 
@@ -63,24 +65,22 @@ namespace MF::Integrity {
             if (fuzzyMatch(s, CurrentArch)) { arch_ok = true; break; }
         }
 
-        if (std::find(SupportedOperatingSystems.begin(), SupportedOperatingSystems.end(), "any") != SupportedOperatingSystems.end()) {
+        if (std::find(SupportedOperatingSystems.begin(), SupportedOperatingSystems.end(), "any") != SupportedOperatingSystems.end())
             os_ok = true;
-        }
-        if (std::find(SupportedArchitectures.begin(), SupportedArchitectures.end(), "any") != SupportedArchitectures.end()) {
+        if (std::find(SupportedArchitectures.begin(), SupportedArchitectures.end(), "any") != SupportedArchitectures.end())
             arch_ok = true;
-        }
 
         if (os_ok && arch_ok) {
-            MF::Print::Out(MF::Print::LogLevel::Info, "Session validation: OK");
+            MF::Print::Out(MF::Print::LogLevel::Info, "Session validation: OK for App " + AppName);
             return true;
         }
 
         if (TakeAction) {
-            IntegrityIssue issue(os_ok, arch_ok, CurrentOS, CurrentArch, InternalSettings::GlobalSettings.Project.App.Name);
+            IntegrityIssue issue(os_ok, arch_ok, CurrentOS, CurrentArch, AppName);
             MF::Integrity::TakeActionOnIntegrityIssue(&issue);
         } else {
-            if (!os_ok) MF::Print::Out(MF::Print::LogLevel::Error, "Not supported OS: " + CurrentOS);
-            if (!arch_ok) MF::Print::Out(MF::Print::LogLevel::Error, "Not supported Arch: " + CurrentArch);
+            if (!os_ok) MF::Print::Out(MF::Print::LogLevel::Error, "App " + AppName + " is not supported on OS: " + CurrentOS);
+            if (!arch_ok) MF::Print::Out(MF::Print::LogLevel::Error, "App " + AppName + " is not supported on Arch: " + CurrentArch);
         }
 
         return false;

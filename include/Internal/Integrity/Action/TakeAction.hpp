@@ -1,17 +1,12 @@
 #pragma once
 
 #include "../../../Outer/Print/Print.hpp"
-#include "../../Configuration/ConfigManager.hpp"
 #include "../IntegrityIssue.hpp"
 
 namespace MF::Integrity {
     inline bool TakeActionOnIntegrityIssue(IntegrityIssue* Issue) {
         try {
-            std::string AppName = "unknown";
-            if (auto v = Issue->AppConfig.Configuration.get("app")) {
-                std::string tmp = v->asString();
-                if (!tmp.empty()) AppName = tmp;
-            }
+            std::string AppName = Issue->AppName;
 
             if (!Issue->Supported.OperatingSystem) {
                 MF::Print::Out(MF::Print::LogLevel::Error, "App " + AppName + " is not supported on " + Issue->OperatingSystem + ".");

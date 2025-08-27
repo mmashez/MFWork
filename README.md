@@ -13,7 +13,9 @@ Currently, it provides only basic features such as:
 - A file manager  
 - Session validation  
 
-⚠️ The initial build (**0.0.0, 17/08/25**) is unstable. Please report any issues you encounter while using the framework.  
+⚠️ **Note:**
+The initial build (**0.0.0, 17/08/25**) is unstable. Please report any issues you encounter while using the framework.
+Breaking API changes will keep happening until MFWork builds a stable foundation, which is planned for around version 1.0.0.
 
 ---
 

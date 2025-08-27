@@ -119,16 +119,18 @@ namespace MF::Initializer {
         if (MF::InternalSettings::GlobalSettings.Init.AutoDetermineLogLevel) {
             MF::Configurations::ConfigManager probe;
             if (probe.Load("Build.hc")) {
-                std::string channel;
-                if (probe.Get("channel", channel)) {
+                std::string channel = "";
+                try {
+                    channel = probe.Configuration.get("channel")->asString();
                     channel = Internal::toLowerCopy(channel);
                     if (channel != "production") {
                         MF::InternalSettings::GlobalSettings.Print.CurrentLevel = MF::Print::LogLevel::Debug;
                     } else {
                         MF::InternalSettings::GlobalSettings.Print.CurrentLevel = MF::Print::LogLevel::Info;
                     }
-                } else {
+                } catch (std::exception& e) {
                     MF::InternalSettings::GlobalSettings.Print.CurrentLevel = MF::Print::LogLevel::Info;
+                    MF::Print::Out(MF::Print::LogLevel::Warning, "Failed to get build channel: " + std::string(e.what()));
                 }
             } else {
                 MF::InternalSettings::GlobalSettings.Print.CurrentLevel = MF::Print::LogLevel::Info;

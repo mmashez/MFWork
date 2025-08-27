@@ -18,33 +18,42 @@ namespace MF::Print {
         std::string timeStr = Chrono::Time::GetTimeStr();
         std::string levelStr = LogLevelToString(level);
 
-        MF::InternalSettings::SettingsStack::Printing::Palette::LevelStyle style;
-        switch (level) {
-            case LogLevel::Debug:   style = palette.Debug; break;
-            case LogLevel::Info:    style = palette.Info; break;
-            case LogLevel::Warning: style = palette.Warning; break;
-            case LogLevel::Error:   style = palette.Error; break;
-            default: style = palette.Info; break;
+        if (!InternalSettings::GlobalSettings.Print.Colors.Enabled) {
+            std::string completeMessage =
+                "[" + timeStr + "] -" + levelStr + "- " + message;
+
+            if (newline) completeMessage += "\n";
+
+            MF::Print::Internal::cout << completeMessage;
+        } else {
+            MF::InternalSettings::SettingsStack::Printing::Palette::LevelStyle style;
+            switch (level) {
+                case LogLevel::Debug:   style = palette.Debug; break;
+                case LogLevel::Info:    style = palette.Info; break;
+                case LogLevel::Warning: style = palette.Warning; break;
+                case LogLevel::Error:   style = palette.Error; break;
+                default: style = palette.Info; break;
+            }
+
+            std::string colorTime    = palette.ColorCode(palette.Time, true);
+            std::string colorLevel   = palette.ColorCode(style.color, style.bold);
+            std::string colorBracket = palette.ColorCode(palette.Brackets, false);
+            std::string colorMessage = palette.ColorCode(palette.Message, false);
+            std::string reset        = palette.Reset;
+
+            std::string completeMessage =
+                colorBracket + "[" + reset +
+                colorTime + timeStr + reset +
+                colorBracket + "]" + reset +
+                " " +
+                colorLevel + "-" + levelStr + "-" + reset +
+                " " +
+                colorMessage + message + reset;
+
+            if (newline) completeMessage += "\n";
+
+            MF::Print::Internal::cout << completeMessage;
         }
-
-        std::string colorTime    = palette.ColorCode(palette.Time, true);
-        std::string colorLevel   = palette.ColorCode(style.color, style.bold);
-        std::string colorBracket = palette.ColorCode(palette.Brackets, false);
-        std::string colorMessage = palette.ColorCode(palette.Message, false);
-        std::string reset        = palette.Reset;
-
-        std::string completeMessage =
-            colorBracket + "[" + reset +
-            colorTime + timeStr + reset +
-            colorBracket + "]" + reset +
-            " " +
-            colorLevel + "-" + levelStr + "-" + reset +
-            " " +
-            colorMessage + message + reset;
-
-        if (newline) completeMessage += "\n";
-
-        MF::Print::Internal::cout << completeMessage;
 
         if (MF::Global::ArgumentParser.Has("mf.print.hclogpath") && InternalSettings::GlobalSettings.Init.AllowOverrides) {
             InternalSettings::GlobalSettings.Print.File.HClogPath = MF::Global::ArgumentParser.Get("mf.print.hclogpath");

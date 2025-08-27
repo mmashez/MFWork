@@ -1,7 +1,6 @@
 #pragma once
 
 #include <string>
-#include "../Configuration/ConfigManager.hpp"
 
 class IntegrityIssue {
 public:
@@ -27,6 +26,4 @@ public:
     std::string OperatingSystem;
     std::string Architecture;
     std::string AppName;
-
-    MF::Configurations::ConfigManager AppConfig;
 };

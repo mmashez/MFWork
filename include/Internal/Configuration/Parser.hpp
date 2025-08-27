@@ -1,7 +1,6 @@
 #pragma once
 
 #include <string>
-#include <unordered_map>
 #include <variant>
 #include <vector>
 #include <fstream>
@@ -13,7 +12,7 @@
 namespace MF::Configurations::Internal::Parser {
     struct HCValue;
 
-    using HCMap = std::unordered_map<std::string, HCValue>;
+    using HCMap = std::vector<std::pair<std::string, HCValue>>;
     using HCList = std::vector<HCValue>;
 
     struct HCValue {
@@ -47,6 +46,16 @@ namespace MF::Configurations::Internal::Parser {
             if (auto pdbl = std::get_if<double>(&value)) return std::to_string(*pdbl);
             return "";
         }
+
+        std::string getType() const {
+            if (std::holds_alternative<std::string>(value)) return "string";
+            if (std::holds_alternative<bool>(value)) return "bool";
+            if (std::holds_alternative<int>(value)) return "int";
+            if (std::holds_alternative<double>(value)) return "double";
+            if (std::holds_alternative<HCMap>(value)) return "map";
+            if (std::holds_alternative<HCList>(value)) return "list";
+            return "unknown";
+        }
     };
 
     inline std::string trim(const std::string& s) {
@@ -57,17 +66,69 @@ namespace MF::Configurations::Internal::Parser {
         return s.substr(start, end - start);
     }
 
+    inline bool iequals(const std::string& a, const std::string& b) {
+        if (a.size() != b.size()) return false;
+        for (size_t i = 0; i < a.size(); ++i) {
+            if (std::tolower(static_cast<unsigned char>(a[i])) !=
+                std::tolower(static_cast<unsigned char>(b[i]))) return false;
+        }
+        return true;
+    }
+
     inline bool startsWith(const std::string& s, const std::string& prefix) {
         return s.size() >= prefix.size() && s.compare(0, prefix.size(), prefix) == 0;
     }
 
+    inline size_t findUnquoted(const std::string& s, char ch, size_t start_pos = 0) {
+        size_t i = start_pos;
+        while (i < s.size()) {
+            if (s[i] == ch) return i;
+            if (s[i] == '"' || s[i] == '\'') {
+                char quote = s[i];
+                ++i;
+                while (i < s.size() && s[i] != quote) ++i;
+                if (i < s.size()) ++i;
+            } else {
+                ++i;
+            }
+        }
+        return std::string::npos;
+    }
+
     inline HCValue parseValue(const std::string& val) {
         std::string v = trim(val);
-        if (v == "true") return HCValue(true);
-        if (v == "false") return HCValue(false);
-        try { size_t pos; int i = std::stoi(v, &pos); if (pos == v.size()) return HCValue(i); } catch (...) {}
-        try { size_t pos; double d = std::stod(v, &pos); if (pos == v.size()) return HCValue(d); } catch (...) {}
+        if (v.empty()) return HCValue(std::string(""));
+        char first = v[0];
+        if ((first == '"' || first == '\'') && v.back() == first && v.size() >= 2) {
+            return HCValue(v.substr(1, v.size() - 2));
+        }
+        if (iequals(v, "true")) return HCValue(true);
+        if (iequals(v, "false")) return HCValue(false);
+        try {
+            size_t pos;
+            int i = std::stoi(v, &pos);
+            if (pos == v.size()) return HCValue(i);
+        } catch (...) {}
+        try {
+            size_t pos;
+            double d = std::stod(v, &pos);
+            if (pos == v.size()) return HCValue(d);
+        } catch (...) {}
         return HCValue(v);
+    }
+
+    inline HCMap::iterator findCaseInsensitive(HCMap& map, const std::string& key) {
+        for (auto it = map.begin(); it != map.end(); ++it) {
+            if (iequals(it->first, key)) return it;
+        }
+        return map.end();
+    }
+
+    inline HCMap::const_iterator findCaseInsensitive(const HCMap& map, const std::string& key) {
+        for (auto it = map.cbegin(); it != map.cend(); ++it) {
+            if (iequals(it->first, key)) return it;
+        }
+        return map.cend();
     }
 
     struct HotConfig {
@@ -92,62 +153,65 @@ namespace MF::Configurations::Internal::Parser {
             std::string rawLine;
 
             while (std::getline(stream, rawLine)) {
-                // skip totally empty lines
                 if (rawLine.empty()) continue;
 
-                std::string trimmedLine = trim(rawLine);
-                if (trimmedLine.empty()) continue;
+                size_t indent = 0;
+                while (indent < rawLine.size() && std::isspace(static_cast<unsigned char>(rawLine[indent]))) ++indent;
 
-                // full-line comment
-                if (startsWith(trimmedLine, "#")) {
-                    pendingComments.push_back(trimmedLine);
-                    continue;
-                }
-
-                // indentation count (spaces only)
-                int indent = 0;
-                while (indent < rawLine.size() && rawLine[indent] == ' ') ++indent;
-
-                // content without leading spaces
                 std::string content = rawLine.substr(indent);
 
-                // inline comment
+                size_t commentPos = findUnquoted(content, '#');
                 std::string inlineComment;
-                size_t commentPos = content.find('#');
                 if (commentPos != std::string::npos) {
                     inlineComment = trim(content.substr(commentPos + 1));
-                    content = trim(content.substr(0, commentPos));
-                } else {
-                    content = trim(content);
+                    content = content.substr(0, commentPos);
                 }
 
-                if (content.empty()) {
-                    // line had only a comment after indentation
+                std::string trimmedContent = trim(content);
+                if (trimmedContent.empty()) {
                     if (!inlineComment.empty()) pendingComments.push_back(std::string("# ") + inlineComment);
                     continue;
                 }
 
-                // pop contexts until we find parent with smaller indent
-                while (!context.empty() && indent <= context.top().indent) context.pop();
+                if (startsWith(trimmedContent, "#")) {
+                    pendingComments.push_back(trimmedContent);
+                    continue;
+                }
+
+                while (context.size() > 1 && indent <= context.top().indent) context.pop();
                 if (context.empty()) return false;
                 HCMap* currentMap = context.top().map;
 
-                // list item
-                if (startsWith(content, "- ")) {
-                    std::string valStr = trim(content.substr(2));
-                    HCValue val = parseValue(valStr);
+                if (startsWith(content, "-")) {
+                    size_t valStart = content.find_first_not_of(" \t", 1);
+                    bool isContainerStart = false;
+                    std::string valStr;
+                    if (valStart == std::string::npos) {
+                        isContainerStart = true;
+                    } else if (content[valStart] == ':') {
+                        isContainerStart = true;
+                    } else {
+                        valStr = content.substr(valStart);
+                        isContainerStart = false;
+                    }
+
+                    HCValue val;
+                    if (isContainerStart) {
+                        val = HCValue(HCMap{});
+                    } else {
+                        val = parseValue(valStr);
+                    }
                     val.CommentsBefore = std::move(pendingComments);
                     val.InlineComment = std::move(inlineComment);
                     pendingComments.clear();
 
-                    // find parent context that has a lastKey set and its map contains that key
                     std::stack<Context> tmp = context;
                     HCMap* parentMap = nullptr;
                     std::string parentKey;
                     while (!tmp.empty()) {
                         const Context &c = tmp.top();
                         if (!c.lastKey.empty()) {
-                            if (c.map->find(c.lastKey) != c.map->end()) {
+                            if (findCaseInsensitive(*c.map, c.lastKey) != c.map->end()) {
                                 parentMap = c.map;
                                 parentKey = c.lastKey;
                                 break;
@@ -157,64 +221,79 @@ namespace MF::Configurations::Internal::Parser {
                     }
                     if (!parentMap) return false;
 
-                    auto it = parentMap->find(parentKey);
+                    auto it = findCaseInsensitive(*parentMap, parentKey);
                     if (it == parentMap->end()) {
-                        // shouldn't happen, but create a list just in case
-                        HCList list; list.push_back(std::move(val));
-                        (*parentMap)[parentKey] = HCValue(std::move(list));
+                        HCList list;
+                        list.push_back(std::move(val));
+                        it = parentMap->emplace(parentMap->end(), parentKey, HCValue(std::move(list)));
                     } else {
                         auto &target = it->second;
                         if (target.isList()) {
-                            target.asList().push_back(std::move(val));
-                        } else if (target.isMap()) {
-                            // if map is empty, convert to list (no garbage element)
-                            if (target.asMap().empty()) {
-                                HCList list;
-                                list.push_back(std::move(val));
-                                target = HCValue(std::move(list));
+                            if (isContainerStart) {
+                                target.asList().push_back(std::move(val));
+                                HCMap* newMap = &target.asList().back().asMap();
+                                context.push({static_cast<int>(indent), newMap, ""});
                             } else {
-                                // it's a non-empty map -> can't convert safely
-                                return false;
+                                target.asList().push_back(std::move(val));
+                            }
+                        } else if (target.isMap()) {
+                            if (!target.asMap().empty()) return false;
+                            if (!context.empty() && context.top().map == &target.asMap()) context.pop();
+                            HCList list;
+                            target = HCValue(std::move(list));
+                            if (isContainerStart) {
+                                target.asList().push_back(std::move(val));
+                                HCMap* newMap = &target.asList().back().asMap();
+                                context.push({static_cast<int>(indent), newMap, ""});
+                            } else {
+                                target.asList().push_back(std::move(val));
                             }
                         } else {
-                            // scalar -> convert existing scalar into first element of list
+                            HCValue old = std::move(target);
                             HCList list;
-                            list.push_back(std::move(target));
-                            list.push_back(std::move(val));
+                            list.push_back(std::move(old));
                             target = HCValue(std::move(list));
+                            if (isContainerStart) {
+                                target.asList().push_back(std::move(val));
+                                HCMap* newMap = &target.asList().back().asMap();
+                                context.push({static_cast<int>(indent), newMap, ""});
+                            } else {
+                                target.asList().push_back(std::move(val));
+                            }
                         }
                     }
                 } else {
-                    // key [: value] case
-                    size_t colonPos = content.find(':');
+                    size_t colonPos = findUnquoted(content, ':');
                     if (colonPos == std::string::npos) return false;
 
                     std::string key = trim(content.substr(0, colonPos));
-                    std::string valStr = trim(content.substr(colonPos + 1));
+                    std::string valStr = content.substr(colonPos + 1);
 
-                    // prepare value holder with comments
                     HCValue val;
                     val.CommentsBefore = std::move(pendingComments);
                     val.InlineComment = std::move(inlineComment);
                     pendingComments.clear();
 
-                    if (valStr.empty()) {
-                        // placeholder for nested structure (could become map or list)
-                        // create an empty map for now (child map), but importantly
-                        // tell the parent context that its lastKey is `key` so lists can attach.
-                        (*currentMap)[key] = HCValue(HCMap{});
-                        // mark parent's lastKey so "- " lines can attach to this key
-                        context.top().lastKey = key;
-                        // push child context (child map receives potential subkeys)
-                        HCMap* childMap = &((*currentMap)[key].asMap());
-                        context.push({indent, childMap, ""});
+                    bool isContainer = trim(valStr).empty();
+                    if (isContainer) {
+                        val = HCValue(HCMap{});
                     } else {
-                        // scalar value
                         val = parseValue(valStr);
-                        (*currentMap)[key] = std::move(val);
-                        // set lastKey in current context so immediate "- " lines (deeper indent)
-                        // know which key they may attach to
-                        context.top().lastKey = key;
+                    }
+
+                    auto it = findCaseInsensitive(*currentMap, key);
+                    if (it != currentMap->end()) {
+                        it->second = std::move(val);
+                    } else {
+                        currentMap->emplace_back(key, std::move(val));
+                    }
+
+                    context.top().lastKey = key;
+
+                    if (isContainer) {
+                        auto lastIt = --currentMap->end();
+                        HCMap* childMap = &lastIt->second.asMap();
+                        context.push({static_cast<int>(indent), childMap, ""});
                     }
                 }
             }
@@ -225,15 +304,17 @@ namespace MF::Configurations::Internal::Parser {
         HCValue* get(const std::string& keyPath) {
             HCMap* map = &root;
             size_t pos = 0, dotPos;
+
             while ((dotPos = keyPath.find('.', pos)) != std::string::npos) {
                 std::string key = keyPath.substr(pos, dotPos - pos);
-                auto it = map->find(key);
+                auto it = findCaseInsensitive(*map, key);
                 if (it == map->end() || !it->second.isMap()) return nullptr;
                 map = &(it->second.asMap());
                 pos = dotPos + 1;
             }
+
             std::string lastKey = keyPath.substr(pos);
-            auto it = map->find(lastKey);
+            auto it = findCaseInsensitive(*map, lastKey);
             if (it == map->end()) return nullptr;
             return &(it->second);
         }
@@ -243,20 +324,30 @@ namespace MF::Configurations::Internal::Parser {
             size_t pos = 0, dotPos;
             while ((dotPos = keyPath.find('.', pos)) != std::string::npos) {
                 std::string key = keyPath.substr(pos, dotPos - pos);
-                auto it = map->find(key);
-                if (it == map->end()) { (*map)[key] = HCValue(HCMap{}); it = map->find(key); }
-                else if (!it->second.isMap()) it->second = HCValue(HCMap{});
+                auto it = findCaseInsensitive(*map, key);
+                if (it == map->end()) {
+                    map->emplace_back(key, HCValue(HCMap{}));
+                    it = --map->end();
+                } else if (!it->second.isMap()) {
+                    it->second = HCValue(HCMap{});
+                }
                 map = &(it->second.asMap());
                 pos = dotPos + 1;
             }
             std::string lastKey = keyPath.substr(pos);
-            (*map)[lastKey] = std::move(newValue);
+            auto it = findCaseInsensitive(*map, lastKey);
+            if (it != map->end()) {
+                it->second = std::move(newValue);
+            } else {
+                map->emplace_back(lastKey, std::move(newValue));
+            }
             return true;
         }
 
         void writeMap(std::ostream& os, const HCMap& map, int indent = 0) const {
             std::string indentStr(indent, ' ');
-            for (const auto& [key, val] : map) {
+            for (const auto& p : map) {
+                const auto& [key, val] = p;
                 for (const auto& c : val.CommentsBefore) os << indentStr << c << "\n";
                 if (val.isMap()) {
                     os << indentStr << key << ":\n";
@@ -283,6 +374,10 @@ namespace MF::Configurations::Internal::Parser {
             if (!file.is_open()) return false;
             writeMap(file, root);
             return true;
+        }
+
+        bool has(const std::string& keyPath) {
+            return get(keyPath) != nullptr;
         }
     };
 }
