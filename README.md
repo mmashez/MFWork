@@ -199,7 +199,7 @@ HotConfig is MFWork’s custom configuration format, inspired by YAML.
 **⚠️ Note**: Usage of App.hc and Build.hc is replaced in versions above v0.1.2-experimental. No deprecated support.
 HotConfig will still be used for other purposes.
 
-**Example: `Project.hc`** *(found in `Internal/Configurations/Rulebook/App.hc`)*  
+**Example: `Project.hc`** *(found in `Internal/Configurations/Rulebook/Project.hc`)*  
 
 ```yaml
 Printing:
