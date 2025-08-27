@@ -80,15 +80,71 @@ int main(int argc, char* argv[]) {
 }
 ```
 
-**Hello World Example** (for versions above 0.1.2-experimental)**:**
+Or, for versions **above 0.1.2-experimental**:
+
+Using Project.hc:
+```cpp
+#include "MFWork/include/MFWork.h"
+
+int main(int argc, char* argv[]) {
+    MF::InternalSettings::SetupHC("Project.hc");
+
+    if (!MF::Initializer::InitializeMFWork(argc, argv)) {
+        return -1;
+    }
+
+    MF::Print::Out(MF::Print::LogLevel::Info, "Hello World!");
+    return 0;
+}
+```
+(Your Project.hc is supposed to look something like:
+
+```yaml
+Printing:
+CurrentLogLevel: Debug
+Palette:
+    Enabled: true
+    
+InitializationSettings:
+    StartTimer: true
+    AllowOverrides: false
+    ParseArguments: true
+    CheckCriticalFiles: true
+    AutoDetermineLogLevel: false
+    ValidateSession: true
+    LogBuildChannel: true
+    AlertOnUnstableChannel: true
+    CriticalFiles:
+        - None
+    
+Project:
+    App:
+        AppName: Meow
+        Author: mmashez
+        License: None
+        Support:
+            Architectures:
+                - x86_64
+                # arm64
+                # x86
+                # any
+            OperatingSystems:
+                - any
+                # linux
+                # windows
+    Build:
+        Version: 0.0.0
+        Channel: Developing # Developing/Unstable/Beta/Production
+```
+)
+
+Or, using manual setup:
 
 ```cpp
 #include "MFWork/include/MFWork.h"
 
-
 int main(int argc, char* argv[]) {
-    MF::InternalSettings::GlobalSettings.Setup({
-        // initialization
+    MF::InternalSettings::SettingsStack settings = {
         .Init = {
             .StartTimer = true,
             .AllowOverrides = true,
@@ -100,31 +156,31 @@ int main(int argc, char* argv[]) {
             .LogBuildChannel = true,
             .AlertOnUnstableChannel = true
         },
-        // printing
         .Print = {
             .CurrentLevel = MF::Print::LogLevel::Debug,
             .File = {
                 .Enabled = true,
                 .HClogPath = "mfwork_logs.hclog"
+            },
+            .Colors = {
+                .Enabled = false
             }
         },
-        // project info
         .Project = {
             .App = {
                 .Name = "MFWork-Testing",
-                .Author = "mmashez",
-                .License = "None",
                 .Support = {
-                    .Architectures = {"x86_64", "arm64", "any"},
-                    .OperatingSystems = {"linux", "windows", "any"}
+                    .Architectures = {"any"},
+                    .OperatingSystems = {"any"}
                 }
             },
             .Build = {
-                .Version = "0.0.0",
-                .Channel = "unstable"
+                .Version = "0.0.0-dev",
+                .Channel = "Developing"
             }
         }
-    });
+    };
+    MF::InternalSettings::Setup(&settings);
 
     if (!MF::Initializer::InitializeMFWork(argc, argv)) {
         return -1;
@@ -143,30 +199,45 @@ HotConfig is MFWork’s custom configuration format, inspired by YAML.
 **⚠️ Note**: Usage of App.hc and Build.hc is replaced in versions above v0.1.2-experimental. No deprecated support.
 HotConfig will still be used for other purposes.
 
-**Example: `App.hc`** *(found in `Internal/Configurations/Rulebook/App.hc`)*  
+**Example: `Project.hc`** *(found in `Internal/Configurations/Rulebook/Project.hc`)*  
 
 ```yaml
-app: MFWork-Testing # Must not contain spaces
-author: mmashez
-license: None
-support:
-    Architecture: 
-        - x86_64
-        - arm64
-        # - arm
-        # - x86
-    OS:
-        - linux
-        # - windows
-        # - any
-# Comments are supported (both block and inline).
-```
-
-**Example: `Build.hc`** *(found in `Internal/Configurations/Rulebook/Build.hc`)*  
-
-```yaml
-version: 0.0.0
-channel: Developing # Developing / Unstable / Beta / Production
+Printing:
+CurrentLogLevel: Debug
+Palette:
+    Enabled: true
+    
+InitializationSettings:
+    StartTimer: true
+    AllowOverrides: false
+    ParseArguments: true
+    CheckCriticalFiles: true
+    AutoDetermineLogLevel: false
+    ValidateSession: true
+    LogBuildChannel: true
+    AlertOnUnstableChannel: true
+    CriticalFiles:
+        - None
+    
+Project:
+    App:
+        AppName: Meow
+        Author: mmashez
+        License: None
+        Support:
+            Architectures:
+                - x86_64
+                # arm64
+                # x86
+                # any
+            OperatingSystems:
+                - any
+                # linux
+                # windows
+    Build:
+        Version: 0.0.0
+        Channel: Developing # Developing/Unstable/Beta/Production # Comments can be defined like this,
+# or like this.
 ```
 
 Have fun! This project is yet to be improved.
