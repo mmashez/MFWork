@@ -1,13 +1,14 @@
 #pragma once
 
-#include "../Integrity/Validation/ValidateSession.hpp"
+#include "../Runtime/Session/Validate.hpp"
 #include "../Files/FilesManager.hpp"
 #include "../../Outer/Print/Print.hpp"
 #include "../../Outer/Global/Initialization.hpp"
 #include "../../Outer/Info/MFWork.h"
 #include "../Runtime/Arguments/Global.hpp"
-#include "../Settings/IntSettings.hpp"
+#include "../Global/GlobalDefinitions.hpp"
 #include "../Time&Date/Misc.hpp"
+#include "../Utils/CoreUtilities.hpp"
 #include <variant>
 #include <vector>
 #include <algorithm>
@@ -18,8 +19,8 @@
 namespace MF::Initializer {
     namespace Internal {
         inline std::string toLowerCopy(std::string s) {
-            std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { 
-                return static_cast<char>(std::tolower(c)); 
+            std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
+                return static_cast<char>(std::tolower(c));
             });
             return s;
         }
@@ -84,30 +85,30 @@ namespace MF::Initializer {
 
     inline bool InitializeMFWork(int argc, char* argv[]) {
         Time::Timer timer("ms");
-        if (MF::InternalSettings::GlobalSettings.Init.StartTimer) {
+        if (Global::GlobalSettings.Init.StartTimer) {
             timer.start();
         }
 
-        if (!MF::InternalSettings::GlobalSettings.Usable) {
+        if (!Global::GlobalSettings.Usable) {
             MF::Print::Out(MF::Print::LogLevel::Error, "MFWork could not be initialized: InternalSettings not setup!");
             return false;
         }
 
-        if (MF::InternalSettings::GlobalSettings.Init.ParseArguments) {
+        if (Global::GlobalSettings.Init.ParseArguments) {
             MF::Print::Out(MF::Print::LogLevel::Debug, "Parsing arguments...");
             MF::Global::ArgumentParser.Parse(argc, argv);
         }
 
-        if (MF::InternalSettings::GlobalSettings.Init.AllowOverrides) {
-            Internal::applyBoolOverride("checkCriticalFiles", MF::InternalSettings::GlobalSettings.Init.CheckCriticalFiles, true);
-            Internal::applyBoolOverride("autoDetermineLogLevel", MF::InternalSettings::GlobalSettings.Init.AutoDetermineLogLevel, true);
-            Internal::applyBoolOverride("validateSession", MF::InternalSettings::GlobalSettings.Init.ValidateSession, true);
-            Internal::applyBoolOverride("logBuildChannel", MF::InternalSettings::GlobalSettings.Init.LogBuildChannel, true);
-            Internal::applyBoolOverride("alertOnUnstableChannel", MF::InternalSettings::GlobalSettings.Init.AlertOnUnstableChannel, true);
+        if (Global::GlobalSettings.Init.AllowOverrides) {
+            Internal::applyBoolOverride("checkCriticalFiles", Global::GlobalSettings.Init.CheckCriticalFiles, true);
+            Internal::applyBoolOverride("autoDetermineLogLevel", Global::GlobalSettings.Init.AutoDetermineLogLevel, true);
+            Internal::applyBoolOverride("validateSession", Global::GlobalSettings.Init.ValidateSession, true);
+            Internal::applyBoolOverride("logBuildChannel", Global::GlobalSettings.Init.LogBuildChannel, true);
+            Internal::applyBoolOverride("alertOnUnstableChannel", Global::GlobalSettings.Init.AlertOnUnstableChannel, true);
         }
 
-        if (MF::InternalSettings::GlobalSettings.Init.CheckCriticalFiles) {
-            std::vector<std::string> CriticalFiles = MF::InternalSettings::GlobalSettings.Init.CriticalFiles;
+        if (Global::GlobalSettings.Init.CheckCriticalFiles) {
+            std::vector<std::string> CriticalFiles = Global::GlobalSettings.Init.CriticalFiles;
             for (const auto& file : CriticalFiles) {
                 if (!MF::FilesManager::Exists(file)) {
                     MF::Print::Out(MF::Print::LogLevel::Error, "Critical file \"" + file + "\" not found!");
@@ -116,38 +117,19 @@ namespace MF::Initializer {
             }
         }
 
-        if (MF::InternalSettings::GlobalSettings.Init.AutoDetermineLogLevel) {
-            MF::Configurations::ConfigManager probe;
-            if (probe.Load("Build.hc")) {
-                std::string channel = "";
-                try {
-                    channel = probe.Configuration.get("channel")->asString();
-                    channel = Internal::toLowerCopy(channel);
-                    if (channel != "production") {
-                        MF::InternalSettings::GlobalSettings.Print.CurrentLevel = MF::Print::LogLevel::Debug;
-                    } else {
-                        MF::InternalSettings::GlobalSettings.Print.CurrentLevel = MF::Print::LogLevel::Info;
-                    }
-                } catch (std::exception& e) {
-                    MF::InternalSettings::GlobalSettings.Print.CurrentLevel = MF::Print::LogLevel::Info;
-                    MF::Print::Out(MF::Print::LogLevel::Warning, "Failed to get build channel: " + std::string(e.what()));
-                }
-            } else {
-                MF::InternalSettings::GlobalSettings.Print.CurrentLevel = MF::Print::LogLevel::Info;
-                MF::Print::Out(MF::Print::LogLevel::Warning, "Failed to load Build.hc!");
+        if (Global::GlobalSettings.Init.AutoDetermineLogLevel) {
+            if (MF::Internal::Utils::CoreUtilities::NormalizeString(Global::GlobalSettings.Project.Build.Channel) != "production") {
+                Global::GlobalSettings.Print.CurrentLevel = Print::LogLevel::Debug;
             }
         }
 
-        if (MF::InternalSettings::GlobalSettings.Init.ValidateSession) {
-            if (!MF::Integrity::ValidateSession(true)) {
-                MF::Print::Out(MF::Print::LogLevel::Error, "Failed to validate session!");
-                return false;
-            }
+        if (Global::GlobalSettings.Init.ValidateSession) {
+            MF::Runtime::Session::Validate(true);
         }
 
-        if (MF::InternalSettings::GlobalSettings.Init.LogBuildChannel) {
+        if (Global::GlobalSettings.Init.LogBuildChannel) {
             try {
-                std::string BuildChannel = MF::InternalSettings::GlobalSettings.Project.Build.Channel;
+                std::string BuildChannel = Global::GlobalSettings.Project.Build.Channel;
                 if (!BuildChannel.empty()) {
                     std::string ch = Internal::toLowerCopy(BuildChannel);
                     ch[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(ch[0])));
@@ -161,7 +143,7 @@ namespace MF::Initializer {
 
         MF::Global::Initialized = true;
         MF::Print::Out(MF::Print::LogLevel::Debug, "Assigned MF::Global::Initialized to true.");
-        if (MF::InternalSettings::GlobalSettings.Init.StartTimer) {
+        if (Global::GlobalSettings.Init.StartTimer) {
             timer.stop();
             MF::Print::Out(MF::Print::LogLevel::Debug, "Initialization complete in " + timer.elapsedString());
         }
@@ -169,7 +151,7 @@ namespace MF::Initializer {
             MF::Print::Out(MF::Print::LogLevel::Debug, "Initialization complete.");
         }
 
-        if (Internal::toLowerCopy(BuildInfo::Channel) != "production" && MF::InternalSettings::GlobalSettings.Init.AlertOnUnstableChannel) {
+        if (Internal::toLowerCopy(BuildInfo::Channel) != "production" && Global::GlobalSettings.Init.AlertOnUnstableChannel) {
             MF::Print::Out(MF::Print::LogLevel::Warning, "MFWork is running on an unstable build (" + BuildInfo::Channel + ").");
             MF::Print::Out(MF::Print::LogLevel::Warning, "Please report any issues to \"" + BuildInfo::GithubRepo + "issues/\".");
         }

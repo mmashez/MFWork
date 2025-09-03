@@ -1,8 +1,11 @@
 Printing:
-CurrentLogLevel: Debug
-Palette:
-    Enabled: true
-    
+    CurrentLogLevel: Debug
+    Palette:
+        Enabled: false
+    FileLogging:
+        Enabled: true
+        HClogPath: devlog_debug.hclog
+
 InitializationSettings:
     StartTimer: true
     AllowOverrides: false
@@ -14,22 +17,20 @@ InitializationSettings:
     AlertOnUnstableChannel: true
     CriticalFiles:
         - None
-    
+
 Project:
     App:
         AppName: Meow
         Author: mmashez
         License: None
+
         Support:
             Architectures:
                 - x86_64
-                # arm64
-                # x86
-                # any
+                - arm64
             OperatingSystems:
                 - any
-                # linux
-                # windows
+
     Build:
         Version: 0.0.0
         Channel: Developing # Developing/Unstable/Beta/Production

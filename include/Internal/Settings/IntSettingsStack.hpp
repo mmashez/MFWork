@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 #include <string>
 #include <vector>
 #include "../Print/LogLevel.hpp"
@@ -25,11 +25,12 @@ namespace MF::InternalSettings {
             struct FileLogging {
                 bool Enabled = false;
                 std::string HClogPath = "mfwork_logs.hclog";
+                bool HeaderWritten = false;
             } File;
 
             struct Palette {
                 bool Enabled = false;
-                
+
                 struct RGB { int r, g, b; };
                 struct LevelStyle { RGB color; bool bold; };
 
@@ -45,6 +46,16 @@ namespace MF::InternalSettings {
                 std::string Reset    = "\033[0m";
                 std::string BoldCode = "\033[1m";
 
+                static bool SupportsTrueColor() {
+                    const char* colorterm = std::getenv("COLORTERM");
+                    return colorterm && (std::string(colorterm) == "truecolor" || std::string(colorterm) == "24bit");
+                }
+
+                static bool SupportsBasicColor() {
+                    const char* term = std::getenv("TERM");
+                    return term && (std::string(term).find("xterm") != std::string::npos || std::string(term).find("screen") != std::string::npos);
+                }
+
                 std::string ColorCode(const RGB& c, bool bold = false) const {
                     std::string s = bold ? BoldCode : "";
                     if (SupportsTrueColor()) {
@@ -57,16 +68,6 @@ namespace MF::InternalSettings {
                         else s += "\033[37m";
                     }
                     return s;
-                }
-
-                static bool SupportsTrueColor() {
-                    const char* colorterm = std::getenv("COLORTERM");
-                    return colorterm && (std::string(colorterm) == "truecolor" || std::string(colorterm) == "24bit");
-                }
-
-                static bool SupportsBasicColor() {
-                    const char* term = std::getenv("TERM");
-                    return term && (std::string(term).find("xterm") != std::string::npos || std::string(term).find("screen") != std::string::npos);
                 }
             } Colors;
         };

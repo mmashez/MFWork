@@ -5,6 +5,7 @@
 #include <string>
 #include <variant>
 #include <vector>
+#include <iostream>
 #include "../Configuration/ConfigManager.hpp"
 #include "IntSettingsStack.hpp"
 #include "../Print/LogLevel.hpp"
@@ -82,179 +83,113 @@ namespace MF::InternalSettings::Internal {
             try {
                 ValType v;
 
-                // Initialization settings
-                const std::vector<std::string> initRoots = {
-                    "Initialization", "InitializationSettings",
-                    "Printing.Initialization", "Printing.InitializationSettings"
-                };
+                // helper for keys
                 auto K = [](const std::string& root, const std::string& leaf) {
                     return root.empty() ? leaf : root + "." + leaf;
                 };
 
-                for (const auto& root : initRoots) {
-                    if (CfgMgr.TryGetBool(K(root, "StartTimer"), settings->Init.StartTimer)) {}
-                    else settings->Init.StartTimer = oldSettings.Init.StartTimer;
+                //  Initialization Settings
+                struct InitField { const char* key; bool& target; };
+                InitField initFields[] = {
+                    {"StartTimer", settings->Init.StartTimer},
+                    {"AllowOverrides", settings->Init.AllowOverrides},
+                    {"CheckCriticalFiles", settings->Init.CheckCriticalFiles},
+                    {"ParseArguments", settings->Init.ParseArguments},
+                    {"AutoDetermineLogLevel", settings->Init.AutoDetermineLogLevel},
+                    {"ValidateSession", settings->Init.ValidateSession},
+                    {"LogBuildChannel", settings->Init.LogBuildChannel},
+                    {"AlertOnUnstableChannel", settings->Init.AlertOnUnstableChannel}
+                };
 
-                    if (CfgMgr.TryGetBool(K(root, "AllowOverrides"), settings->Init.AllowOverrides)) {}
-                    else settings->Init.AllowOverrides = oldSettings.Init.AllowOverrides;
-
-                    if (CfgMgr.TryGetBool(K(root, "CheckCriticalFiles"), settings->Init.CheckCriticalFiles)) {}
-                    else settings->Init.CheckCriticalFiles = oldSettings.Init.CheckCriticalFiles;
-
-                    if (CfgMgr.TryGetBool(K(root, "ParseArguments"), settings->Init.ParseArguments)) {}
-                    else settings->Init.ParseArguments = oldSettings.Init.ParseArguments;
-
-                    if (CfgMgr.TryGetBool(K(root, "AutoDetermineLogLevel"), settings->Init.AutoDetermineLogLevel)) {}
-                    else settings->Init.AutoDetermineLogLevel = oldSettings.Init.AutoDetermineLogLevel;
-
-                    if (CfgMgr.TryGetBool(K(root, "ValidateSession"), settings->Init.ValidateSession)) {}
-                    else settings->Init.ValidateSession = oldSettings.Init.ValidateSession;
-
-                    if (CfgMgr.TryGetBool(K(root, "LogBuildChannel"), settings->Init.LogBuildChannel)) {}
-                    else settings->Init.LogBuildChannel = oldSettings.Init.LogBuildChannel;
-
-                    if (CfgMgr.TryGetBool(K(root, "AlertOnUnstableChannel"), settings->Init.AlertOnUnstableChannel)) {}
-                    else settings->Init.AlertOnUnstableChannel = oldSettings.Init.AlertOnUnstableChannel;
-
+                for (auto& root : std::vector<std::string>{"Initialization", "InitializationSettings"}) {
+                    for (auto& f : initFields) {
+                        if (CfgMgr.TryGetBool(K(root, f.key), f.target)) continue;
+                        // fallback to old if missing
+                        f.target = f.target;
+                    }
+                    // CriticalFiles
                     if (CfgMgr.Get(K(root, "CriticalFiles"), v)) {
                         settings->Init.CriticalFiles.clear();
                         if (std::holds_alternative<MF::Configurations::Internal::Parser::HCList>(v)) {
-                            const auto& lst = std::get<MF::Configurations::Internal::Parser::HCList>(v);
-                            for (const auto& item : lst) {
-                                std::string s = normalize(item.asString());
-                                if (s == "none") {
-                                    settings->Init.CriticalFiles.clear();
-                                    break;
-                                }
-                                if (!s.empty()) settings->Init.CriticalFiles.push_back(s);
+                            for (auto& item : std::get<MF::Configurations::Internal::Parser::HCList>(v)) {
+                                std::string s = item.asString();
+                                if (!s.empty() && s != "None") settings->Init.CriticalFiles.push_back(s);
                             }
-                        } else {
-                            std::string s = normalize(as_string(v));
-                            if (s != "none" && !s.empty()) settings->Init.CriticalFiles.push_back(s);
+                        } else if (std::holds_alternative<std::string>(v)) {
+                            std::string s = std::get<std::string>(v);
+                            if (!s.empty() && s != "None") settings->Init.CriticalFiles.push_back(s);
                         }
                     } else {
                         settings->Init.CriticalFiles = oldSettings.Init.CriticalFiles;
                     }
                 }
 
-                // Printing settings
-                if (get_first({"Printing.CurrentLogLevel", "Printing.CurrentLevel", "Printing.LogLevel"}, v)) {
+                // Printing Settings
+                if (get_first({"Printing.CurrentLogLevel","Printing.CurrentLevel","Printing.LogLevel"},v))
                     settings->Print.CurrentLevel = parse_loglevel(v, oldSettings.Print.CurrentLevel);
-                } else {
-                    settings->Print.CurrentLevel = oldSettings.Print.CurrentLevel;
-                }
+                else settings->Print.CurrentLevel = oldSettings.Print.CurrentLevel;
 
-                if (get_first({"Printing.File.Enabled", "Printing.FileLogging.Enabled"}, v)) {
+                if (get_first({"Printing.File.Enabled","Printing.FileLogging.Enabled"},v))
                     settings->Print.File.Enabled = as_bool(v, oldSettings.Print.File.Enabled);
-                } else {
-                    settings->Print.File.Enabled = oldSettings.Print.File.Enabled;
-                }
+                else settings->Print.File.Enabled = oldSettings.Print.File.Enabled;
 
-                if (get_first({"Printing.File.HClogPath", "Printing.FileLogging.HClogPath"}, v)) {
+                if (get_first({"Printing.File.HClogPath","Printing.FileLogging.HClogPath"},v))
                     settings->Print.File.HClogPath = as_string(v, oldSettings.Print.File.HClogPath);
-                } else {
-                    settings->Print.File.HClogPath = oldSettings.Print.File.HClogPath;
-                }
+                else settings->Print.File.HClogPath = oldSettings.Print.File.HClogPath;
 
-                if (get_first({"Printing.Colors.Enabled", "Printing.Palette.Enabled"}, v)) {
+                if (get_first({"Printing.Colors.Enabled","Printing.Palette.Enabled"},v))
                     settings->Print.Colors.Enabled = as_bool(v, oldSettings.Print.Colors.Enabled);
-                } else {
-                    settings->Print.Colors.Enabled = oldSettings.Print.Colors.Enabled;
-                }
+                else settings->Print.Colors.Enabled = oldSettings.Print.Colors.Enabled;
 
-                // Project settings
-                const std::vector<std::string> projectRoots = {"Project", "Printing.Project"};
-
-                for (const auto& root : projectRoots) {
-                    std::vector<std::string> appNameKeys = {
-                        K(root, "App.AppName"), K(root, "App.Name"),
-                        K(root, "App.appname"), K(root, "App.name")
-                    };
-                    for (const auto& key : appNameKeys) {
-                        if (CfgMgr.Get(key, v) && std::holds_alternative<std::string>(v)) {
-                            settings->Project.App.Name = std::get<std::string>(v);
-                            break;
+                // Project Settings
+                auto parseList = [&](const std::string& root, const std::string& key, std::vector<std::string>& out) {
+                    const MF::Configurations::Internal::Parser::HCList* lst = nullptr;
+                    std::string single;
+                    if (CfgMgr.TryGetList(K(root,key), lst)) {
+                        out.clear();
+                        for (auto& item : *lst) {
+                            std::string s = item.asString();
+                            if (!s.empty()) out.push_back(s);
                         }
+                    } else if (CfgMgr.TryGetString(K(root,key), single)) {
+                        out.clear();
+                        if (!single.empty()) out.push_back(single);
                     }
-                    if (settings->Project.App.Name.empty()) {
-                        settings->Project.App.Name = oldSettings.Project.App.Name;
-                    }
+                };
 
-                    if (CfgMgr.Get(K(root, "App.Author"), v)) {
+                for (auto& root : std::vector<std::string>{"Project","Printing.Project"}) {
+                    // App
+                    if (CfgMgr.Get(K(root,"App.AppName"),v)) {
+                        settings->Project.App.Name = as_string(v, oldSettings.Project.App.Name);
+                    }
+                    if (CfgMgr.Get(K(root,"App.Author"),v)) {
                         settings->Project.App.Author = as_string(v, oldSettings.Project.App.Author);
-                    } else {
-                        settings->Project.App.Author = oldSettings.Project.App.Author;
                     }
-
-                    if (CfgMgr.Get(K(root, "App.License"), v)) {
+                    if (CfgMgr.Get(K(root,"App.License"),v)) {
                         settings->Project.App.License = as_string(v, oldSettings.Project.App.License);
-                    } else {
-                        settings->Project.App.License = oldSettings.Project.App.License;
                     }
 
-                    if (CfgMgr.Get(K(root, "App.Support.Architectures"), v)) {
-                        settings->Project.App.Support.Architectures.clear();
-                        if (std::holds_alternative<MF::Configurations::Internal::Parser::HCList>(v)) {
-                            const auto& lst = std::get<MF::Configurations::Internal::Parser::HCList>(v);
-                            bool anyFlag = false;
-                            for (const auto& item : lst) {
-                                std::string s = normalize(item.asString());
-                                if (s == "any") {
-                                    anyFlag = true;
-                                    break;
-                                }
-                                if (!s.empty()) settings->Project.App.Support.Architectures.push_back(s);
-                            }
-                            if (anyFlag) settings->Project.App.Support.Architectures = {"any"};
-                        } else {
-                            std::string s = normalize(as_string(v));
-                            if (s == "any") settings->Project.App.Support.Architectures = {"any"};
-                            else if (!s.empty()) settings->Project.App.Support.Architectures.push_back(s);
-                        }
-                    } else {
+                    // Support lists
+                    parseList(root,"App.Support.Architectures",settings->Project.App.Support.Architectures);
+                    if (settings->Project.App.Support.Architectures.empty())
                         settings->Project.App.Support.Architectures = oldSettings.Project.App.Support.Architectures;
-                    }
 
-                    if (CfgMgr.Get(K(root, "App.Support.OperatingSystems"), v)) {
-                        settings->Project.App.Support.OperatingSystems.clear();
-                        if (std::holds_alternative<MF::Configurations::Internal::Parser::HCList>(v)) {
-                            const auto& lst = std::get<MF::Configurations::Internal::Parser::HCList>(v);
-                            bool anyFlag = false;
-                            for (const auto& item : lst) {
-                                std::string s = normalize(item.asString());
-                                if (s == "any") {
-                                    anyFlag = true;
-                                    break;
-                                }
-                                if (!s.empty()) settings->Project.App.Support.OperatingSystems.push_back(s);
-                            }
-                            if (anyFlag) settings->Project.App.Support.OperatingSystems = {"any"};
-                        } else {
-                            std::string s = normalize(as_string(v));
-                            if (s == "any") settings->Project.App.Support.OperatingSystems = {"any"};
-                            else if (!s.empty()) settings->Project.App.Support.OperatingSystems.push_back(s);
-                        }
-                    } else {
+                    parseList(root,"App.Support.OperatingSystems",settings->Project.App.Support.OperatingSystems);
+                    if (settings->Project.App.Support.OperatingSystems.empty())
                         settings->Project.App.Support.OperatingSystems = oldSettings.Project.App.Support.OperatingSystems;
-                    }
 
-                    if (CfgMgr.Get(K(root, "Build.Version"), v)) {
+                    // Build
+                    if (CfgMgr.Get(K(root,"Build.Version"),v)) {
                         settings->Project.Build.Version = as_string(v, oldSettings.Project.Build.Version);
-                    } else {
-                        settings->Project.Build.Version = oldSettings.Project.Build.Version;
                     }
-
-                    if (CfgMgr.Get(K(root, "Build.Channel"), v)) {
-                        settings->Project.Build.Channel = normalize(as_string(v, oldSettings.Project.Build.Channel));
-                    } else {
-                        settings->Project.Build.Channel = oldSettings.Project.Build.Channel;
+                    if (CfgMgr.Get(K(root,"Build.Channel"),v)) {
+                        settings->Project.Build.Channel = as_string(v, oldSettings.Project.Build.Channel);
                     }
                 }
 
                 return true;
             } catch (const std::exception& e) {
-                // Optionally log the error for debugging
-                // std::cerr << "Configuration mapping failed: " << e.what() << std::endl;
+                std::cerr << "Failed to map settings via " << CfgMgr.Filename << "\n";
                 *settings = oldSettings;
                 return false;
             }

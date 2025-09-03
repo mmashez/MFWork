@@ -79,16 +79,17 @@ namespace MF::Configurations::Internal::Parser {
         return s.size() >= prefix.size() && s.compare(0, prefix.size(), prefix) == 0;
     }
 
+    // fix: check for quotes first, then check for the character outside quotes
     inline size_t findUnquoted(const std::string& s, char ch, size_t start_pos = 0) {
         size_t i = start_pos;
         while (i < s.size()) {
-            if (s[i] == ch) return i;
             if (s[i] == '"' || s[i] == '\'') {
                 char quote = s[i];
                 ++i;
                 while (i < s.size() && s[i] != quote) ++i;
                 if (i < s.size()) ++i;
             } else {
+                if (s[i] == ch) return i;
                 ++i;
             }
         }
