@@ -6,11 +6,13 @@
 #include "../Time&Date/Time/Misc.hpp"
 #include "../Utils/CoreUtilities.hpp"
 #include "../Settings/IntSettingsStack.hpp"
+#include "../Runtime/Arguments/Parser.hpp"
 
 namespace MF::Global {
     inline static InternalSettings::SettingsStack GlobalSettings;
     inline static int LaunchTime = Chrono::Time::GetRawTime();
     inline static std::string LaunchTimeStr = Chrono::Date::GetDateStr() + " " + Chrono::Time::GetTimeStr();
+    inline Runtime::Arguments::Parser ArgumentParser;
 
     struct ValidationInfo {
         class ArchitectureInfo {

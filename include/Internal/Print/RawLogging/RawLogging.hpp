@@ -3,8 +3,8 @@
 #include <string>
 
 namespace MF::Print::Internal {
+
     struct RawIO {
-        // handle printing anything that can convert to string / primitive types
         template <typename T>
         RawIO& operator<<(const T& value) {
             print(value);
@@ -17,49 +17,80 @@ namespace MF::Print::Internal {
         }
 
     private:
+        // strings
         void print(const std::string& s) { std::printf("%s", s.c_str()); }
-        void print(const char* s) { std::printf("%s", s); }
-        void print(char c) { std::printf("%c", c); }
-        void print(bool b) { std::printf("%s", b ? "true" : "false"); }
-        void print(int i) { std::printf("%d", i); }
-        void print(unsigned int u) { std::printf("%u", u); }
-        void print(long l) { std::printf("%ld", l); }
-        void print(unsigned long ul) { std::printf("%lu", ul); }
-        void print(double d) { std::printf("%f", d); }
+        void print(const char* s)        { std::printf("%s", s); }
+        void print(char c)               { std::printf("%c", c); }
+        void print(bool b)               { std::printf("%s", b ? "true" : "false"); }
+
+        // integers
+        void print(short v)              { std::printf("%hd", v); }
+        void print(unsigned short v)     { std::printf("%hu", v); }
+        void print(int v)                { std::printf("%d", v); }
+        void print(unsigned int v)       { std::printf("%u", v); }
+        void print(long v)               { std::printf("%ld", v); }
+        void print(unsigned long v)      { std::printf("%lu", v); }
+        void print(long long v)          { std::printf("%lld", v); }
+        void print(unsigned long long v) { std::printf("%llu", v); }
+
+        // floating point
+        void print(float f)              { std::printf("%g", f); }
+        void print(double d)             { std::printf("%g", d); }
+        void print(long double ld)       { std::printf("%Lg", ld); }
     };
 
-    // global instance for output
-    inline RawIO cout;
+    inline RawIO mf_cout; // avoids conflict with std::cout
 
-    // endl manipulator
     inline RawIO& endl(RawIO& out) {
         std::printf("\n");
         return out;
     }
 
-    // --------- cin-like input ---------
+    // -------- safer input --------
     struct RawIOIn {
         template <typename T>
         RawIOIn& operator>>(T& value) {
-            read(value);
+            if (!read(value)) {
+                // reset value on failure to avoid stale data
+                value = T{};
+            }
             return *this;
         }
 
     private:
-        void read(int& i) { std::scanf("%d", &i); }
-        void read(unsigned int& u) { std::scanf("%u", &u); }
-        void read(long& l) { std::scanf("%ld", &l); }
-        void read(unsigned long& ul) { std::scanf("%lu", &ul); }
-        void read(double& d) { std::scanf("%lf", &d); }
-        void read(char& c) { std::scanf(" %c", &c); } // note leading space to skip whitespace
-        void read(bool& b) { int tmp; std::scanf("%d", &tmp); b = (tmp != 0); }
-        void read(std::string& s) {
-            char buf[1024];
-            std::scanf("%1023s", buf);
-            s = buf;
+        // integers
+        bool read(int& i)                { return std::scanf("%d", &i) == 1; }
+        bool read(unsigned int& u)       { return std::scanf("%u", &u) == 1; }
+        bool read(long& l)               { return std::scanf("%ld", &l) == 1; }
+        bool read(unsigned long& ul)     { return std::scanf("%lu", &ul) == 1; }
+        bool read(long long& ll)         { return std::scanf("%lld", &ll) == 1; }
+        bool read(unsigned long long& ull){ return std::scanf("%llu", &ull) == 1; }
+
+        // floating point
+        bool read(float& f)              { return std::scanf("%f", &f) == 1; }
+        bool read(double& d)             { return std::scanf("%lf", &d) == 1; }
+        bool read(long double& ld)       { return std::scanf("%Lf", &ld) == 1; }
+
+        // char & bool
+        bool read(char& c)               { return std::scanf(" %c", &c) == 1; } // skip whitespace
+        bool read(bool& b) {
+            int tmp;
+            if (std::scanf("%d", &tmp) == 1) { b = (tmp != 0); return true; }
+            return false;
+        }
+
+        // strings (getline-like)
+        bool read(std::string& s) {
+            char buf[4096];
+            if (std::scanf(" %4095[^\n]", buf) == 1) {
+                s = buf;
+                return true;
+            }
+            s.clear();
+            return false;
         }
     };
 
-    // global instance for input
-    inline RawIOIn cin;
-}
+    inline RawIOIn mf_cin; // avoids conflict with std::cin
+
+} // namespace MF::Print::Internal

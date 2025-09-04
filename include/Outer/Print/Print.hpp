@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../../Internal/Print/RawLogging/RawLogging.hpp"
-#include "../../Internal/Runtime/Arguments/Global.hpp"
 #include "../../Internal/Print/LogLevel.hpp"
 #include "../../Internal/Global/GlobalDefinitions.hpp"
 #include "../../Internal/Files/FilesManager.hpp"
@@ -23,7 +22,7 @@ namespace MF::Print {
 
             if (newline) completeMessage += "\n";
 
-            MF::Print::Internal::cout << completeMessage;
+            MF::Print::Internal::mf_cout << completeMessage;
         } else {
             MF::InternalSettings::SettingsStack::Printing::Palette::LevelStyle style;
             switch (level) {
@@ -51,7 +50,7 @@ namespace MF::Print {
 
             if (newline) completeMessage += "\n";
 
-            MF::Print::Internal::cout << completeMessage;
+            MF::Print::Internal::mf_cout << completeMessage;
         }
 
         // allow override of log path
@@ -77,7 +76,7 @@ namespace MF::Print {
                     logFile << "    [" << Global::LaunchTimeStr << "]:\n";
                     Global::GlobalSettings.Print.File.HeaderWritten = true; // <- use global flag
                 } else {
-                    MF::Print::Internal::cout << "[ERROR] Failed to open " << Global::GlobalSettings.Print.File.HClogPath << "\n";
+                    MF::Print::Internal::mf_cout << "[ERROR] Failed to open " << Global::GlobalSettings.Print.File.HClogPath << "\n";
                     return;
                 }
             }
@@ -86,7 +85,7 @@ namespace MF::Print {
             if (logFile.is_open()) {
                 logFile << "        [" << timeStr << "] -" << levelStr << "- " << message << "\n";
             } else {
-                MF::Print::Internal::cout << "[ERROR] Failed to open " << Global::GlobalSettings.Print.File.HClogPath << "\n";
+                MF::Print::Internal::mf_cout << "[ERROR] Failed to open " << Global::GlobalSettings.Print.File.HClogPath << "\n";
             }
         }
     }

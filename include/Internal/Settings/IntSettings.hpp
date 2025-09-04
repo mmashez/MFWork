@@ -2,7 +2,6 @@
 
 #include <stdexcept>
 #include <string>
-#include <iostream>
 #include "IntSettingsStack.hpp"
 #include "HCHelper.hpp"
 #include "../Global/GlobalDefinitions.hpp"

@@ -18,7 +18,11 @@ namespace MF::Runtime::Session {
         bool platformSupported = false;
         for (const auto& Platform : Global::GlobalSettings.Project.App.Support.OperatingSystems) {
             std::string normalized = Internal::Utils::CoreUtilities::NormalizeString(Platform, true);
-            Print::Out(Print::LogLevel::Debug, "Found support for platform " + normalized);
+            bool IsAny = normalized == "any";
+            !IsAny ?
+                Print::Out(Print::LogLevel::Debug, "Found support for platform " + normalized)
+                :
+                Print::Out(Print::LogLevel::Debug, "Found support for any platforms");
             if (normalized == "any" || normalized == Current.Platform) {
                 Global::Validation.Platform.Append(normalized == "any" ? Current.Platform : normalized, true);
                 platformSupported = true;

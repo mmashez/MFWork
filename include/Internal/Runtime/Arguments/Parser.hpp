@@ -14,38 +14,30 @@ namespace MF::Runtime::Arguments {
                 std::string arg = argv[i];
 
                 if (arg.rfind("--", 0) == 0) {
+                    // --key=value or --key
                     auto pos = arg.find('=');
                     if (pos != std::string::npos) {
                         std::string key = arg.substr(2, pos - 2);
                         std::string value = arg.substr(pos + 1);
                         normalize(key);
                         trimQuotes(value);
-                        args_[key] = value;
-
-                        if (key.rfind("mf.init.", 0) == 0) {
-                            std::string shortk = key.substr(8);
-                            args_[shortk] = value;
-                        }
+                        insertKey(key, value);
                     } else {
                         std::string key = arg.substr(2);
                         normalize(key);
-                        args_[key] = "true";
-                        if (key.rfind("mf.init.", 0) == 0) {
-                            std::string shortk = key.substr(8);
-                            args_[shortk] = std::string("true");
-                        }
+                        insertKey(key, "true");
                     }
                 } else if (arg.find('=') != std::string::npos) {
+                    // key=value (no leading --)
                     auto pos = arg.find('=');
                     std::string key = arg.substr(0, pos);
                     std::string value = arg.substr(pos + 1);
                     normalize(key);
                     trimQuotes(value);
-                    args_[key] = value;
+                    insertKey(key, value);
                 } else {
-                    std::string key = arg;
-                    normalize(key);
-                    args_[key] = "true";
+                    // pure positional arg
+                    positional_.push_back(arg);
                 }
             }
         }
@@ -68,7 +60,7 @@ namespace MF::Runtime::Arguments {
             return positional_;
         }
 
-        const std::unordered_map<std::string, std::string>& DebugDump() const {
+        const std::unordered_map<std::string, std::string>& Dump() const {
             return args_;
         }
 
@@ -79,9 +71,15 @@ namespace MF::Runtime::Arguments {
         }
 
         static void trimQuotes(std::string& s) {
-            if (s.size() >= 2 && ((s.front() == '"' && s.back() == '"') || (s.front() == '\'' && s.back() == '\''))) {
+            if (s.size() >= 2 &&
+               ((s.front() == '"' && s.back() == '"') ||
+                (s.front() == '\'' && s.back() == '\''))) {
                 s = s.substr(1, s.size() - 2);
             }
+        }
+
+        void insertKey(const std::string& key, const std::string& value) {
+            args_[key] = value;
         }
 
         std::unordered_map<std::string, std::string> args_;

@@ -5,41 +5,31 @@
 #include "../../Outer/Print/Print.hpp"
 #include "../../Outer/Global/Initialization.hpp"
 #include "../../Outer/Info/MFWork.h"
-#include "../Runtime/Arguments/Global.hpp"
 #include "../Global/GlobalDefinitions.hpp"
 #include "../Time&Date/Misc.hpp"
 #include "../Utils/CoreUtilities.hpp"
 #include <variant>
 #include <vector>
-#include <algorithm>
-#include <cctype>
 #include <string>
 #include <type_traits>
 
 namespace MF::Initializer {
     namespace Internal {
-        inline std::string toLowerCopy(std::string s) {
-            std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
-                return static_cast<char>(std::tolower(c));
-            });
-            return s;
-        }
-
         inline std::variant<std::monostate, std::string, bool, double, float> ParseValue(const std::string& raw) {
-            std::string lower = toLowerCopy(raw);
+            std::string lower = MF::Internal::Utils::CoreUtilities::Lowercase(raw);
             if (lower == "true" || lower == "false") return lower == "true";
             try {
                 size_t pos = 0;
                 double d = std::stod(raw, &pos);
                 if (pos == raw.size()) return d;
             } catch (...) {}
-            return raw;
+            return MF::Internal::Utils::CoreUtilities::NormalizeString(raw, false);
         }
 
         inline std::variant<std::monostate, std::string, bool, double, float> GetOverride(
             std::string What, bool ForceIsolation = true
         ) {
-            std::string norm = toLowerCopy(What);
+            std::string norm = MF::Internal::Utils::CoreUtilities::Lowercase(What);
 
             if (!ForceIsolation) {
                 if (MF::Global::ArgumentParser.Has(norm)) {
@@ -73,13 +63,13 @@ namespace MF::Initializer {
                 if constexpr (std::is_same_v<V, bool>) {
                     target = val;
                 } else if constexpr (std::is_same_v<V, std::string>) {
-                    std::string lower = toLowerCopy(val);
+                    std::string lower = MF::Internal::Utils::CoreUtilities::Lowercase(val);
                     target = (lower == "true" || lower == "1");
                 } else if constexpr (std::is_same_v<V, double> || std::is_same_v<V, float>) {
                     target = (val != 0.0);
                 }
             }, v);
-            MF::Print::Out(MF::Print::LogLevel::Warning, "Applied override \"" + key + "\" -> " + (target ? "true" : "false"));
+            MF::Print::Out(MF::Print::LogLevel::Debug, "Applied override \"" + key + "\" -> " + (target ? "true" : "false"));
         }
     }
 
@@ -97,14 +87,25 @@ namespace MF::Initializer {
         if (Global::GlobalSettings.Init.ParseArguments) {
             MF::Print::Out(MF::Print::LogLevel::Debug, "Parsing arguments...");
             MF::Global::ArgumentParser.Parse(argc, argv);
-        }
 
-        if (Global::GlobalSettings.Init.AllowOverrides) {
-            Internal::applyBoolOverride("checkCriticalFiles", Global::GlobalSettings.Init.CheckCriticalFiles, true);
-            Internal::applyBoolOverride("autoDetermineLogLevel", Global::GlobalSettings.Init.AutoDetermineLogLevel, true);
-            Internal::applyBoolOverride("validateSession", Global::GlobalSettings.Init.ValidateSession, true);
-            Internal::applyBoolOverride("logBuildChannel", Global::GlobalSettings.Init.LogBuildChannel, true);
-            Internal::applyBoolOverride("alertOnUnstableChannel", Global::GlobalSettings.Init.AlertOnUnstableChannel, true);
+            bool RuntimeHasArguments = !Global::ArgumentParser.Dump().empty() && !MF::Global::ArgumentParser.Positional().empty();
+
+            if (RuntimeHasArguments) {
+                MF::Print::Out(MF::Print::LogLevel::Debug, "No arguments found.");
+            }
+            bool TalkedAboutNoArguments = false;
+            if (Global::GlobalSettings.Init.AllowOverrides && RuntimeHasArguments) {
+                Internal::applyBoolOverride("checkCriticalFiles", Global::GlobalSettings.Init.CheckCriticalFiles, true);
+                Internal::applyBoolOverride("autoDetermineLogLevel", Global::GlobalSettings.Init.AutoDetermineLogLevel, true);
+                Internal::applyBoolOverride("validateSession", Global::GlobalSettings.Init.ValidateSession, true);
+                Internal::applyBoolOverride("logBuildChannel", Global::GlobalSettings.Init.LogBuildChannel, true);
+                Internal::applyBoolOverride("alertOnUnstableChannel", Global::GlobalSettings.Init.AlertOnUnstableChannel, true);
+            } else if (!Global::GlobalSettings.Init.AllowOverrides) {
+                Print::Out(Print::LogLevel::Debug, "Skipping implementing overrides, overrides are prohibited...");
+                TalkedAboutNoArguments = true;
+            } else if (!RuntimeHasArguments && !TalkedAboutNoArguments) {
+                Print::Out(Print::LogLevel::Debug, "Skipping implementing overrides, app was launched with no arguments...");
+            }
         }
 
         if (Global::GlobalSettings.Init.CheckCriticalFiles) {
@@ -131,9 +132,9 @@ namespace MF::Initializer {
             try {
                 std::string BuildChannel = Global::GlobalSettings.Project.Build.Channel;
                 if (!BuildChannel.empty()) {
-                    std::string ch = Internal::toLowerCopy(BuildChannel);
-                    ch[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(ch[0])));
-                    MF::Print::Out(MF::Print::LogLevel::Info, "Running on " + ch + " channel.");
+                    std::string ch = MF::Internal::Utils::CoreUtilities::NormalizeString(BuildChannel);
+                    ch = MF::Internal::Utils::CoreUtilities::Capitalize(ch);
+                    MF::Print::Out(MF::Print::LogLevel::Debug, "Running on " + ch + " channel.");
                 }
             } catch (std::exception& e) {
                 MF::Print::Out(MF::Print::LogLevel::Error, "Failed to get build channel: " + std::string(e.what()));
@@ -151,7 +152,7 @@ namespace MF::Initializer {
             MF::Print::Out(MF::Print::LogLevel::Debug, "Initialization complete.");
         }
 
-        if (Internal::toLowerCopy(BuildInfo::Channel) != "production" && Global::GlobalSettings.Init.AlertOnUnstableChannel) {
+        if (MF::Internal::Utils::CoreUtilities::NormalizeString(BuildInfo::Channel) != "production" && Global::GlobalSettings.Init.AlertOnUnstableChannel) {
             MF::Print::Out(MF::Print::LogLevel::Warning, "MFWork is running on an unstable build (" + BuildInfo::Channel + ").");
             MF::Print::Out(MF::Print::LogLevel::Warning, "Please report any issues to \"" + BuildInfo::GithubRepo + "issues/\".");
         }
